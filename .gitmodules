@@ -1,0 +1,3 @@
+[submodule "NodeGoat"]
+	path = NodeGoat
+	url = https://gitlab.com/matheuslimam3/NodeGoat.git

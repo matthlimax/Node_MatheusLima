@@ -1,28 +1,22 @@
-name: Veracode Scan GitHub
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+trigger:
+- master
 
-jobs:
-  Veracode-SAST-Policy-Scan:
-    runs-on: ubuntu-latest
-    container:
-      image: veracode/api-wrapper-java:latest
-      options: --user root
-    steps:
-      - uses: actions/checkout@v2
-      - name: Build Project
-        run: |
-          # Execute o comando para empacotar a origem do repositório
-          ./veracode package --source https://github.com/matthlimax/NodeGoat --type repo --trust
-      - name: Package Code
-        run: |
-          zip -r uploadToVeracode.zip . -x "*node_modules*" "*.git*" -i "*.js" "*.html" "*.htm" "*.ts" "*.tsx" "*.json" "*.css" "*.jsp" "*.vue"
-      - name: Scan with Veracode SAST Policy Scan
-        run: |
-          java -jar /opt/veracode/api-wrapper.jar -vid "${{ secrets.VERACODE_ID }}" -vkey "${{ secrets.VERACODE_KEY }}" -action UploadAndScan -createprofile false -appname "NodeGoat.vOutubro" -version "${{ github.run_id }}" -filepath uploadToVeracode.zip
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script:
+    sleep 1
+  displayName: 'Build'
+
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(system.defaultworkingdirectory)'
+    includeRootFolder: true
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
 
   Veracode-SAST-Pipeline-Scan:
     runs-on: ubuntu-latest

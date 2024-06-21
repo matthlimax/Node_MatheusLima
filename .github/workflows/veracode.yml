@@ -1,37 +1,44 @@
-trigger:
-   - main
+on: 
+  push: 
+    branches: [feature-ejs]
 
-pool:
-  vmImage: ubuntu-latest
+jobs:
+  veracode-auto-package:
+    name: veracode auto-package
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Check out the repo
+        uses: actions/checkout@v3
+      - name: veracode CLI Download
+        env: 
+          VERACODE_API_KEY_ID: ${{ secrets.VERACODE_ID }}
+          VERACODE_API_KEY_SECRET: ${{ secrets.VERACODE_KEY }}
+        run: |
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+          ./veracode package --source . --output . --trust
+          ls -l | veracode-auto-pack-Web-dotnet-js.zip
+      - name: Save artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode_pack
+          path: veracode-auto-pack-Web-dotnet-js.zip
 
-  steps:
-  - script:
-     sleep 1
-    displayName: 'Build'
+  veracode-sast-pipeline-scan:
+    runs-on: ubuntu-latest
+    needs: veracode-auto-package
+    name: veracode sast pipeline scan
+    steps:
+      - name: Get archive
+        uses: actions/download-artifact@v2
+        with:
+          name: veracode_pack
+          path: .
 
-
-  - task: ArchiveFiles@2
-    inputs:
-    rootFolderOrFile: '$(system.defaultworkingdirectory)'
-    includeRootFolder: true
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
-    replaceExistingArchive: true
-
-     Veracode-SAST-Pipeline-Scan:
-       runs-on: ubuntu-latest
-       container:
-       image: veracode/pipeline-scan:latest
-       options: --user root
-       steps:
-       - uses: actions/checkout@v2
-       - name: Build Project
-         run: |
-          # Execute o comando para empacotar a origem do repositório
-          ./veracode package --source https://github.com/matthlimax/NodeGoat --type repo --trust
-       - name: Package Code
-         run: |
-          zip -r uploadToVeracode.zip . -x "*node_modules*" "*.git*" -i "*.js" "*.html" "*.htm" "*.ts" "*.tsx" "*.json" "*.css" "*.jsp" "*.vue"
-       - name: Scan with Veracode SAST Pipeline Scan
-         run: |   
-          java -jar /opt/veracode/pipeline-scan.jar -vid "${{ secrets.VERACODE_ID }}" -vkey "${{ secrets.VERACODE_KEY }}" -f uploadToVeracode.zip
+      - name: Pipeline scan action step
+        id: pipeline-scan
+        uses: veracode/Veracode-pipeline-scan-actions@v1.0.16
+        with:
+          vid: ${{ secrets.VID }}
+          vkey: ${{ secrets.VKEY }}
+          file: veracode-auto-pack-Web-dotnet-js.zip
+          fail_build: false
